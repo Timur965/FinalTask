@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -24,7 +25,7 @@ func NewApiGateway(newsServiceURL, commentsServiceURL string) *ApiGateway {
 }
 
 func (ap *ApiGateway) HandleGetAllNews(w http.ResponseWriter, r *http.Request) {
-	response, err := http.Get("http://" + r.URL.Query().Get("serviceURL") + "/news")
+	response, err := http.Get(ap.NewsServiceURL + "/news")
 	if err != nil {
 		log.Println("Ошибка при вызове сервиса новостей:", err)
 		http.Error(w, "Ошибка сервиса", http.StatusInternalServerError)
@@ -80,40 +81,75 @@ func (ap *ApiGateway) HandleFilterNews(w http.ResponseWriter, r *http.Request) {
 
 func (ap *ApiGateway) HandleDetiledNews(w http.ResponseWriter, r *http.Request) {
 	idNews := r.URL.Query().Get("idNews")
-	url := ap.CommentsServiceURL + "/detailedNews?idNews=" + idNews
-
-	response, err := http.Get(url)
-	if err != nil {
-		log.Println("Ошибка при вызове детальной информации новости:", err)
-		http.Error(w, "Ошибка сервиса комментариев", http.StatusInternalServerError)
-		return
-	}
-	defer response.Body.Close()
-
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		http.Error(w, "Ошибка чтения ответа сервиса", http.StatusInternalServerError)
+	if idNews == "" {
+		http.Error(w, "idNews parameter is required", http.StatusBadRequest)
 		return
 	}
 
-	url = ap.NewsServiceURL + "/detailedNews?idNews=" + idNews
-
-	response, err = http.Get(url)
-	if err != nil {
-		log.Println("Ошибка при вызове детальной информации новости:", err)
-		http.Error(w, "Ошибка сервиса новостей", http.StatusInternalServerError)
-		return
-	}
-	defer response.Body.Close()
-
-	body, err = ioutil.ReadAll(response.Body)
-	if err != nil {
-		http.Error(w, "Ошибка чтения ответа сервиса", http.StatusInternalServerError)
-		return
+	type responseResult struct {
+		data interface{}
+		err  error
 	}
 
-	w.WriteHeader(response.StatusCode)
-	w.Write(body)
+	newsURL := ap.NewsServiceURL + "/detailedNews?idNews=" + idNews
+	commentsURL := ap.CommentsServiceURL + "/detailedNews?idNews=" + idNews
+
+	results := make(chan responseResult, 2)
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	fetchData := func(url string, resultType string) {
+		defer wg.Done()
+		resp, err := http.Get(url)
+		if err != nil {
+			results <- responseResult{nil, err}
+			return
+		}
+		defer resp.Body.Close()
+
+		var data interface{}
+		if resultType == "news" {
+			var oneNews storage.News
+			if err := json.NewDecoder(resp.Body).Decode(&oneNews); err != nil {
+				results <- responseResult{nil, err}
+				return
+			}
+			data = oneNews
+		} else if resultType == "comments" {
+			var allComments []storage.Comments
+			if err := json.NewDecoder(resp.Body).Decode(&allComments); err != nil {
+				results <- responseResult{nil, err}
+				return
+			}
+			data = allComments
+		}
+		results <- responseResult{data, nil}
+	}
+
+	go fetchData(newsURL, "news")
+	go fetchData(commentsURL, "comments")
+
+	wg.Wait()
+	close(results)
+
+	var detailedResponse storage.DetailedNews
+	for result := range results {
+		if result.err != nil {
+			http.Error(w, result.err.Error(), http.StatusInternalServerError)
+			return
+		}
+		switch data := result.data.(type) {
+		case storage.News:
+			detailedResponse.OneNews = data
+		case []storage.Comments:
+			detailedResponse.AllComments = data
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(detailedResponse); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 func (ap *ApiGateway) HandleAddComments(w http.ResponseWriter, r *http.Request) {

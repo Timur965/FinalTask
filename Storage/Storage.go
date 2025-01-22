@@ -14,6 +14,11 @@ type Comments struct {
 	CreatedAt int64
 }
 
+type DetailedNews struct {
+	OneNews     News
+	AllComments []Comments
+}
+
 const (
 	FullMatchText = iota
 	PartialMatchText
