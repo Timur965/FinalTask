@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"strconv"
 	"sync"
 	"time"
@@ -25,7 +26,8 @@ func NewApiGateway(newsServiceURL, commentsServiceURL string) *ApiGateway {
 }
 
 func (ap *ApiGateway) HandleGetAllNews(w http.ResponseWriter, r *http.Request) {
-	response, err := http.Get(ap.NewsServiceURL + "/news")
+	page := r.URL.Query().Get("page")
+	response, err := http.Get(ap.NewsServiceURL + "/news?page=" + page)
 	if err != nil {
 		log.Println("Ошибка при вызове сервиса новостей:", err)
 		http.Error(w, "Ошибка сервиса", http.StatusInternalServerError)
@@ -44,25 +46,26 @@ func (ap *ApiGateway) HandleGetAllNews(w http.ResponseWriter, r *http.Request) {
 
 func (ap *ApiGateway) HandleFilterNews(w http.ResponseWriter, r *http.Request) {
 	filter := r.URL.Query().Get("Filter")
-	url := ""
+	page := r.URL.Query().Get("page")
+	urlAddr := ""
 
 	switch filter {
 	case "FullMatchText", "PartialMatchText", "FullMatchHeader", "PartialMatchHeader", "ExcludedPhrases":
-		textFilter := r.URL.Query().Get("Text")
-		url = ap.NewsServiceURL + "/news/filter?filter=" + filter + "&text=" + textFilter
+		textFilter := url.QueryEscape(r.URL.Query().Get("Text"))
+		urlAddr = ap.NewsServiceURL + "/news/filter?filter=" + filter + "&text=" + textFilter + "&page=" + page
 	case "SelectionDate":
-		date := r.URL.Query().Get("date")
-		url = ap.NewsServiceURL + "/news/filter?filter=SelectionDate&date=" + date
+		date := url.QueryEscape(r.URL.Query().Get("date"))
+		urlAddr = ap.NewsServiceURL + "/news/filter?filter=SelectionDate&date=" + date + "&page=" + page
 	case "DateRange":
-		dateStart := r.URL.Query().Get("dateStart")
-		dateEnd := r.URL.Query().Get("dateEnd")
-		url = ap.NewsServiceURL + "/news/filter?filter=DateRange&dateStart=" + dateStart + "&dateEnd=" + dateEnd
+		dateStart := url.QueryEscape(r.URL.Query().Get("dateStart"))
+		dateEnd := url.QueryEscape(r.URL.Query().Get("dateEnd"))
+		urlAddr = ap.NewsServiceURL + "/news/filter?filter=DateRange&dateStart=" + dateStart + "&dateEnd=" + dateEnd + "&page=" + page
 	case "FieldSort":
-		field := r.URL.Query().Get("field")
-		url = ap.NewsServiceURL + "/news/sort?field=" + field
+		field := url.QueryEscape(r.URL.Query().Get("field"))
+		urlAddr = ap.NewsServiceURL + "/news/sort?field=" + field + "&page=" + page
 	}
 
-	response, err := http.Get(url)
+	response, err := http.Get(urlAddr)
 	if err != nil {
 		log.Println("Ошибка при вызове фильтрации новостей:", err)
 		http.Error(w, "Ошибка сервиса", http.StatusInternalServerError)

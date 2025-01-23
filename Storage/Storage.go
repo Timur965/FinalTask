@@ -19,6 +19,17 @@ type DetailedNews struct {
 	AllComments []Comments
 }
 
+type Pagination struct {
+	NumOfPages int
+	Page       int
+	Limit      int
+}
+
+type ResponseWithPagiantion struct {
+	AllNews []News
+	Pg      Pagination
+}
+
 const (
 	FullMatchText = iota
 	PartialMatchText
