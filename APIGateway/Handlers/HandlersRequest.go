@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -156,16 +155,39 @@ func (ap *ApiGateway) HandleDetiledNews(w http.ResponseWriter, r *http.Request) 
 }
 
 func (ap *ApiGateway) HandleAddComments(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.URL.Query().Get("idNews"))
+	if r.Method != http.MethodPost {
+		http.Error(w, "Метод не разрешен", http.StatusMethodNotAllowed)
+		return
+	}
+
+	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		log.Println("Ошибка получения ID новости:", err)
+		log.Println("Ошибка чтения тела запроса:", err)
+		http.Error(w, "Ошибка чтения тела запроса", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	var comment storage.Comments
+	err = json.Unmarshal(body, &comment)
+	if err != nil {
+		log.Println("Ошибка десериализации JSON:", err)
+		http.Error(w, "Некорректный JSON", http.StatusBadRequest)
+		return
+	}
+
+	if comment.NewsId == 0 {
+		log.Println("Ошибка: не указан ID новости")
 		http.Error(w, "Некорректный ID новости", http.StatusBadRequest)
 		return
 	}
 
-	var comment storage.Comments
-	comment.NewsId = id
-	comment.Content = r.URL.Query().Get("content")
+	if comment.Content == "" {
+		log.Println("Ошибка: не указан текст комментария")
+		http.Error(w, "Текст комментария не может быть пустым", http.StatusBadRequest)
+		return
+	}
+
 	comment.CreatedAt = time.Now().Unix()
 
 	commentJSON, err := json.Marshal(comment)
@@ -184,11 +206,12 @@ func (ap *ApiGateway) HandleAddComments(w http.ResponseWriter, r *http.Request) 
 	}
 	defer response.Body.Close()
 
-	body, err := ioutil.ReadAll(response.Body)
+	responseBody, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		http.Error(w, "Ошибка чтения ответа сервиса", http.StatusInternalServerError)
 		return
 	}
+
 	w.WriteHeader(response.StatusCode)
-	w.Write(body)
+	w.Write(responseBody)
 }

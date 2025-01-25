@@ -2,19 +2,26 @@ package main
 
 import (
 	HandlersRequest "FinalTask/APIGateway/Handlers"
+	storage "FinalTask/Storage"
 	"fmt"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 func main() {
 	handler := HandlersRequest.NewApiGateway("http://localhost:8082", "http://localhost:8081")
 
-	http.HandleFunc("/news", handler.HandleGetAllNews)
-	http.HandleFunc("/filterNews", handler.HandleFilterNews)
-	http.HandleFunc("/detailedNews", handler.HandleDetiledNews)
-	http.HandleFunc("/addComment", handler.HandleAddComments)
+	mux := mux.NewRouter()
+	mux.Use(storage.Middleware)
+	mux.Use(storage.LoggingMiddleware)
 
-	err := (http.ListenAndServe(":8080", nil))
+	mux.HandleFunc("/news", handler.HandleGetAllNews).Methods(http.MethodGet, http.MethodOptions)
+	mux.HandleFunc("/filterNews", handler.HandleFilterNews).Methods(http.MethodGet, http.MethodOptions)
+	mux.HandleFunc("/detailedNews", handler.HandleDetiledNews).Methods(http.MethodGet, http.MethodOptions)
+	mux.HandleFunc("/addComment", handler.HandleAddComments).Methods(http.MethodPost, http.MethodOptions)
+
+	err := (http.ListenAndServe(":8080", mux))
 	if err != nil {
 		fmt.Errorf("Ошибка запуска ApiGateway: %s", err.Error())
 	}

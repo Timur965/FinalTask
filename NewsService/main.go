@@ -25,6 +25,8 @@ func main() {
 		log.Fatal(err)
 	}
 	api := api.New(dbNews)
+	api.Router().Use(storage.Middleware)
+	api.Router().Use(storage.LoggingMiddleware)
 
 	b, err := ioutil.ReadFile("./config.json")
 	if err != nil {
