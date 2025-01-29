@@ -10,6 +10,7 @@ import (
 )
 
 func main() {
+	storage.InitGetEnv()
 	handler, err := HandlersRequest.NewHandler()
 	if err != nil {
 		fmt.Errorf("Ошибка создания обработчика комментариев")

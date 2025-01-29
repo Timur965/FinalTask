@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	handler := HandlersRequest.NewApiGateway("http://localhost:8082", "http://localhost:8081")
+	handler := HandlersRequest.NewApiGateway("http://localhost:8082", "http://localhost:8081", "http://localhost:8083")
 
 	mux := mux.NewRouter()
 	mux.Use(storage.Middleware)

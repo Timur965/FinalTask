@@ -11,7 +11,6 @@ import (
 
 type handlerRequests struct {
 	db *db.PostgresComments
-	cs *CensorShip
 }
 
 func NewHandler() (*handlerRequests, error) {
@@ -19,13 +18,11 @@ func NewHandler() (*handlerRequests, error) {
 	var err error
 
 	newHandler.db = new(db.PostgresComments)
-	newHandler.cs = new(CensorShip)
 
-	newHandler.db, err = db.New("postgres://postgres:220201@localhost:5432/Comments")
+	newHandler.db, err = db.New(storage.DBCommentStr)
 	if err != nil {
 		log.Println(err)
 	}
-	newHandler.cs, err = newCensorShip()
 
 	return &newHandler, err
 }
@@ -73,7 +70,6 @@ func (hr *handlerRequests) AddCommentHandler(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	comment.Content = hr.cs.IsForbiddenWords(comment.Content)
 	err := hr.db.AddComments(comment)
 	if err != nil {
 		http.Error(w, "Не удалось добавить данные в БД", http.StatusBadRequest)

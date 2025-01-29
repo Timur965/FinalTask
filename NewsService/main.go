@@ -20,7 +20,8 @@ type config struct {
 }
 
 func main() {
-	dbNews, err := db.NewNews("postgres://postgres:220201@localhost:5432/News")
+	storage.InitGetEnv()
+	dbNews, err := db.NewNews(storage.DBNewsStr)
 	if err != nil {
 		log.Fatal(err)
 	}

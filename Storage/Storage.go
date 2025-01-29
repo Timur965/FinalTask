@@ -1,5 +1,12 @@
 package storage
 
+import (
+	"log"
+	"os"
+
+	"github.com/joho/godotenv"
+)
+
 type News struct {
 	Id        int
 	Title     string
@@ -45,3 +52,17 @@ const (
 	DateSort = iota
 	NameSort
 )
+
+var DBCommentStr string
+var DBNewsStr string
+
+func InitGetEnv() {
+	if err := godotenv.Load("C:\\Users\\rus98\\go\\src\\FinalTask\\Storage\\.env"); err != nil {
+		log.Print("No .env file found")
+	}
+	newsStr := os.Getenv("DBNewsStr")
+	commentStr := os.Getenv("DBCommentStr")
+
+	DBNewsStr = newsStr
+	DBCommentStr = commentStr
+}

@@ -15,12 +15,14 @@ import (
 type ApiGateway struct {
 	NewsServiceURL     string
 	CommentsServiceURL string
+	CensorServiceURL   string
 }
 
-func NewApiGateway(newsServiceURL, commentsServiceURL string) *ApiGateway {
+func NewApiGateway(newsServiceURL, commentsServiceURL string, censorServiceUrl string) *ApiGateway {
 	return &ApiGateway{
 		NewsServiceURL:     newsServiceURL,
 		CommentsServiceURL: commentsServiceURL,
+		CensorServiceURL:   censorServiceUrl,
 	}
 }
 
@@ -197,8 +199,21 @@ func (ap *ApiGateway) HandleAddComments(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	url := ap.CommentsServiceURL + "/addComment"
+	url := ap.CensorServiceURL + "/checkCensor"
 	response, err := http.Post(url, "application/json", bytes.NewBuffer(commentJSON))
+	if err != nil {
+		log.Println("Ошибка при проверке цензуры:", err)
+		http.Error(w, "Ошибка сервиса", http.StatusInternalServerError)
+		return
+	}
+	if response.StatusCode != 200 {
+		w.WriteHeader(response.StatusCode)
+		w.Write([]byte("Комментарий с таким содержимым добавить нельзя"))
+		return
+	}
+
+	url = ap.CommentsServiceURL + "/addComment"
+	response, err = http.Post(url, "application/json", bytes.NewBuffer(commentJSON))
 	if err != nil {
 		log.Println("Ошибка при отправке комментария:", err)
 		http.Error(w, "Ошибка сервиса", http.StatusInternalServerError)
